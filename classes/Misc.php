@@ -2189,20 +2189,40 @@
 			global $conf, $lang;
 			$grps = array();
 
-			foreach ($conf['srv_groups'] as $i => $group) {
-				if (
-					(($group_id === false) and (! isset($group['parents']))) /* root */
-					or (
-						($group_id !== false)
-						and isset($group['parents'])
-						and in_array($group_id,explode(',',
-								preg_replace('/\s/', '', $group['parents'])
-							))
-					) /* nested group */
-				)
-					$grps[$i] = array(
-						'id' => $i,
-						'desc' => $group['desc'],
+			if (isset($conf['srv_groups'])) {
+				foreach ($conf['srv_groups'] as $i => $group) {
+					if (
+						(($group_id === false) and (! isset($group['parents']))) /* root */
+						or (
+							($group_id !== false)
+							and isset($group['parents'])
+							and in_array($group_id,explode(',',
+									preg_replace('/\s/', '', $group['parents'])
+								))
+						) /* nested group */
+					)
+						$grps[$i] = array(
+							'id' => $i,
+							'desc' => $group['desc'],
+							'icon' => 'Servers',
+							'action' => url('servers.php',
+								array(
+									'group' => field('id')
+								)
+							),
+							'branch' => url('servers.php',
+								array(
+									'action' => 'tree',
+									'group' => $i
+								)
+							)
+						);
+				}
+
+				if ($group_id === false)
+					$grps['all'] = array(
+						'id' => 'all',
+						'desc' => $lang['strallservers'],
 						'icon' => 'Servers',
 						'action' => url('servers.php',
 							array(
@@ -2210,31 +2230,13 @@
 							)
 						),
 						'branch' => url('servers.php',
-							array(
-								'action' => 'tree',
-								'group' => $i
+								array(
+									'action' => 'tree',
+									'group' => 'all'
+								)
 							)
-						)
 					);
 			}
-
-			if ($group_id === false)
-				$grps['all'] = array(
-					'id' => 'all',
-					'desc' => $lang['strallservers'],
-					'icon' => 'Servers',
-					'action' => url('servers.php',
-						array(
-							'group' => field('id')
-						)
-					),
-					'branch' => url('servers.php',
-							array(
-								'action' => 'tree',
-								'group' => 'all'
-							)
-						)
-				);
 
 			if ($recordset) {
 				include_once('./classes/ArrayRecordSet.php');
@@ -2258,8 +2260,11 @@
 			$srvs = array();
 
 			if (($group !== false) and ($group !== 'all'))
-				$group = array_fill_keys(explode(',', preg_replace('/\s/', '',
-					$conf['srv_groups'][$group]['servers'])), 1);
+				if (isset($conf['srv_groups'][$group]['servers']))
+					$group = array_fill_keys(explode(',', preg_replace('/\s/', '',
+						$conf['srv_groups'][$group]['servers'])), 1);
+				else
+					$group = '';
 			
 			foreach($conf['servers'] as $idx => $info) {
 				$server_id = $info['host'].':'.$info['port'].':'.$info['sslmode'];

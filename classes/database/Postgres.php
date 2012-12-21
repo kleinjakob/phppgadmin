@@ -270,7 +270,9 @@ class Postgres extends ADODB_base {
 				break;
 			case 'bytea':
 			case 'bytea[]':
-				$value = $this->escapeBytea($value);
+                if (!is_null($value)) {
+				    $value = $this->escapeBytea($value);
+                }
 			case 'text':
 			case 'text[]':
 			case 'xml':
@@ -464,7 +466,7 @@ class Postgres extends ADODB_base {
 
 		$sql = "
 			SELECT pdb.datname AS datname, pr.rolname AS datowner, pg_encoding_to_char(encoding) AS datencoding,
-				(SELECT description FROM pg_catalog.pg_shdescription pd WHERE pdb.oid=pd.objoid) AS datcomment,
+				(SELECT description FROM pg_catalog.pg_shdescription pd WHERE pdb.oid=pd.objoid AND pd.classoid='pg_database'::regclass) AS datcomment,
 				(SELECT spcname FROM pg_catalog.pg_tablespace pt WHERE pt.oid=pdb.dattablespace) AS tablespace,
 				CASE WHEN pg_catalog.has_database_privilege(current_user, pdb.oid, 'CONNECT') 
 					THEN pg_catalog.pg_database_size(pdb.oid) 
@@ -487,7 +489,7 @@ class Postgres extends ADODB_base {
 	 */
 	function getDatabaseComment($database) {
 		$this->clean($database);
-		$sql = "SELECT description FROM pg_catalog.pg_database JOIN pg_catalog.pg_shdescription ON (oid=objoid) WHERE pg_database.datname = '{$database}' ";
+		$sql = "SELECT description FROM pg_catalog.pg_database JOIN pg_catalog.pg_shdescription ON (oid=objoid AND classoid='pg_database'::regclass) WHERE pg_database.datname = '{$database}' ";
 		return $this->selectSet($sql);
 	}
 
@@ -6937,7 +6939,7 @@ class Postgres extends ADODB_base {
 		global $conf;
 
 		$sql = "SELECT spcname, pg_catalog.pg_get_userbyid(spcowner) AS spcowner, pg_catalog.pg_tablespace_location(oid) as spclocation,
-                    (SELECT description FROM pg_catalog.pg_shdescription pd WHERE pg_tablespace.oid=pd.objoid) AS spccomment
+                    (SELECT description FROM pg_catalog.pg_shdescription pd WHERE pg_tablespace.oid=pd.objoid AND pd.classoid='pg_tablespace'::regclass) AS spccomment
 					FROM pg_catalog.pg_tablespace";
 
 		if (!$conf['show_system'] && !$all) {
@@ -6957,7 +6959,7 @@ class Postgres extends ADODB_base {
 		$this->clean($spcname);
 
 		$sql = "SELECT spcname, pg_catalog.pg_get_userbyid(spcowner) AS spcowner, pg_catalog.pg_tablespace_location(oid) as spclocation,
-                    (SELECT description FROM pg_catalog.pg_shdescription pd WHERE pg_tablespace.oid=pd.objoid) AS spccomment
+                    (SELECT description FROM pg_catalog.pg_shdescription pd WHERE pg_tablespace.oid=pd.objoid AND pd.classoid='pg_tablespace'::regclass) AS spccomment
 					FROM pg_catalog.pg_tablespace WHERE spcname='{$spcname}'";
 
 		return $this->selectSet($sql);
@@ -7196,12 +7198,15 @@ class Postgres extends ADODB_base {
 	 */
 	function getProcesses($database = null) {
 		if ($database === null)
-			$sql = "SELECT * FROM pg_catalog.pg_stat_activity ORDER BY datname, usename, pid";
+			$sql = "SELECT datname, usename, pid, query, query_start
+				FROM pg_catalog.pg_stat_activity
+				ORDER BY datname, usename, pid";
 		else {
 			$this->clean($database);
-		$sql = "
-				SELECT * FROM pg_catalog.pg_stat_activity
-				WHERE datname='{$database}' ORDER BY usename, pid";
+			$sql = "SELECT datname, usename, pid, query, query_start
+				FROM pg_catalog.pg_stat_activity
+				WHERE datname='{$database}'
+				ORDER BY usename, pid";
 		}
 
 		return $this->selectSet($sql);

@@ -35,15 +35,20 @@ class Postgres91 extends Postgres {
 	 */
 	function getProcesses($database = null) {
 		if ($database === null)
-			$sql = "SELECT * FROM pg_catalog.pg_stat_activity ORDER BY datname, usename, procpid";
+			$sql = "SELECT datname, usename, procpid AS pid, current_query AS query, query_start
+				FROM pg_catalog.pg_stat_activity
+				ORDER BY datname, usename, procpid";
 		else {
-			$this->clean($database);
-		$sql = "
-				SELECT * FROM pg_catalog.pg_stat_activity
-				WHERE datname='{$database}' ORDER BY usename, procpid";
+			//$this->clean($database);
+			$sql = "SELECT datname, usename, procpid AS pid, current_query AS query, query_start
+				FROM pg_catalog.pg_stat_activity
+				-- WHERE datname='{$database}'
+				ORDER BY usename, procpid";
 		}
 
-		return $this->selectSet($sql);
+		$rc = $this->selectSet($sql);
+
+		return $rc;
 	}
 
 	// Tablespace functions
@@ -57,7 +62,7 @@ class Postgres91 extends Postgres {
 		global $conf;
 
 		$sql = "SELECT spcname, pg_catalog.pg_get_userbyid(spcowner) AS spcowner, spclocation,
-                    (SELECT description FROM pg_catalog.pg_shdescription pd WHERE pg_tablespace.oid=pd.objoid) AS spccomment
+                    (SELECT description FROM pg_catalog.pg_shdescription pd WHERE pg_tablespace.oid=pd.objoid AND pd.classoid='pg_tablespace'::regclass) AS spccomment
 					FROM pg_catalog.pg_tablespace";
 
 		if (!$conf['show_system'] && !$all) {
@@ -77,7 +82,7 @@ class Postgres91 extends Postgres {
 		$this->clean($spcname);
 
 		$sql = "SELECT spcname, pg_catalog.pg_get_userbyid(spcowner) AS spcowner, spclocation,
-                    (SELECT description FROM pg_catalog.pg_shdescription pd WHERE pg_tablespace.oid=pd.objoid) AS spccomment
+                    (SELECT description FROM pg_catalog.pg_shdescription pd WHERE pg_tablespace.oid=pd.objoid AND pd.classoid='pg_tablespace'::regclass) AS spccomment
 					FROM pg_catalog.pg_tablespace WHERE spcname='{$spcname}'";
 
 		return $this->selectSet($sql);
